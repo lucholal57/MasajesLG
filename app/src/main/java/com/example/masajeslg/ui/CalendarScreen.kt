@@ -264,7 +264,7 @@ private fun AppointmentRow(ap: AppointmentUi) {
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = ap.serviceName,
+                Text(text = ap.serviceName ?: "(Servicio)"),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

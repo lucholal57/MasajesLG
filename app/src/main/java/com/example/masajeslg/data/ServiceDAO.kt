@@ -9,18 +9,21 @@ interface ServiceDao {
     fun getActive(): Flow<List<Service>>
 
     @Query("SELECT * FROM services ORDER BY active DESC, name ASC")
-    fun getAll(): Flow<List<Service>> // <- solo si usás 'getAll'
+    fun getAll(): Flow<List<Service>>
 
     @Query("SELECT * FROM services WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): Service?
 
-    @Insert suspend fun insert(s: Service)
-    @Update suspend fun update(s: Service)
+    @Insert
+    suspend fun insert(s: Service): Long  // <-- antes no devolvía nada
+
+    @Update
+    suspend fun update(s: Service)
 
     @Query("UPDATE services SET active = :active WHERE id = :id")
     suspend fun setActive(id: Long, active: Boolean)
 
     @Query("DELETE FROM services WHERE id = :id")
     suspend fun delete(id: Long)
-
 }
+

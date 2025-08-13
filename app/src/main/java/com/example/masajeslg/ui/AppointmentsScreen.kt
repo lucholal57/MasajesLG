@@ -1,4 +1,4 @@
-package com.example.masajeslg.ui.theme
+package com.example.masajeslg.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -18,9 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.masajeslg.data.AppDatabase
-import com.example.masajeslg.ui.AppointmentsViewModel
-import com.example.masajeslg.ui.AppointmentsViewModelFactory
-import com.example.masajeslg.ui.CalendarScreen
+import com.example.masajeslg.data.AppointmentUi
+import com.example.masajeslg.data.Client
+import com.example.masajeslg.data.Service
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -52,7 +52,7 @@ fun AppointmentsScreen() {
     val snack = remember { SnackbarHostState() }
 
     var showCreate by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<com.example.masajeslg.data.AppointmentUi?>(null) }
+    var editing by remember { mutableStateOf<AppointmentUi?>(null) }
 
     LaunchedEffect(Unit) {
         vm.uiMsg.collect { msg -> snack.showSnackbar(message = msg) }
@@ -323,7 +323,7 @@ private fun NewClientDialog(
                 scope.launch {
                     // ⚠️ Ajustá el constructor según tu entidad `Client`
                     val newId = db.clientDao().insert(
-                        com.example.masajeslg.data.Client(
+                        Client(
                             id = 0, // autogen por Room
                             name = name.trim(),
                             phone = phone.ifBlank { null }
@@ -348,7 +348,11 @@ private fun NewServiceDialog(
     val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("60") }
     var priceText by remember { mutableStateOf("") }
+
+    val durationInt = duration.toIntOrNull() ?: -1
+    val price = priceText.replace(',', '.').toDoubleOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -360,23 +364,27 @@ private fun NewServiceDialog(
                     label = { Text("Nombre *") }, singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = priceText, onValueChange = { priceText = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
-                    label = { Text("Precio (opcional)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    value = duration, onValueChange = { duration = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Duración (min) *") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    isError = durationInt <= 0
+                )
+                OutlinedTextField(
+                    value = priceText, onValueChange = { priceText = it.replace(',', '.').filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text("Precio") }, singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            val enabled = name.isNotBlank()
+            val enabled = name.isNotBlank() && durationInt > 0
             TextButton(enabled = enabled, onClick = {
                 scope.launch {
-                    val price = priceText.replace(',', '.').toDoubleOrNull()
-                    // ⚠️ Ajustá el constructor según tu entidad `Service`
                     val newId = db.serviceDao().insert(
-                        com.example.masajeslg.data.Service(
-                            id = 0, // autogen
+                        Service(
+                            id = 0,
                             name = name.trim(),
-                            price = price,          // si tu entidad no tiene price, quitá esta línea
-                            active = true           // si tu entidad usa flag de activo
+                            durationMinutes = durationInt,
+                            price = (price ?: 0.0),
+                            active = true
                         )
                     )
                     onCreated(newId)
@@ -386,3 +394,4 @@ private fun NewServiceDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }
+

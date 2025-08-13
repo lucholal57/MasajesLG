@@ -1,4 +1,4 @@
-package com.example.masajeslg.ui.theme
+package com.example.masajeslg.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,11 +19,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.masajeslg.ui.ClientsScreen
-import com.example.masajeslg.ui.ServicesScreen
-import com.example.masajeslg.ui.SoftBackground
-import com.example.masajeslg.ui.SplashScreen
-import com.example.masajeslg.ui.StatsScreen
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
