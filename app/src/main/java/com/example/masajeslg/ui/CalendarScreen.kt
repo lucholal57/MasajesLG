@@ -8,20 +8,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.masajeslg.data.AppointmentUi
+import com.example.masajeslg.util.openWhatsApp
 import com.example.masajeslg.util.parseSqlDayToLocalDate
+import java.text.NumberFormat
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -47,6 +49,9 @@ fun CalendarScreen(
     val countsMap = remember(dayCounts) {
         dayCounts.associate { parseSqlDayToLocalDate(it.day) to it.count }
     }
+
+    // ⬇️ estado para confirmar borrado
+    var toDelete by remember { mutableStateOf<AppointmentUi?>(null) }
 
     Scaffold(
         topBar = {
@@ -130,13 +135,39 @@ fun CalendarScreen(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(appointments, key = { it.appointment.id }) { ap ->
-                        AppointmentRow(ap)
+                    items(items = appointments, key = { it.appointment.id }) { ap ->
+                        AppointmentRow(
+                            ap = ap,
+                            onSetStatus = { newStatus ->
+                                viewModel.setStatus(ap.appointment.id, newStatus)
+                            },
+                            onDelete = { toDelete = ap } // ⬅️ abrir confirmación
+                        )
                         Divider()
                     }
                 }
             }
         }
+    }
+
+    // Diálogo confirmar eliminar
+    toDelete?.let { row ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            title = { Text("Eliminar turno") },
+            text = {
+                Text("¿Eliminar el turno de ${row.clientName} a las ${formatHour(row.appointment.startAt)}?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.delete(row.appointment.id)
+                    toDelete = null
+                }) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { toDelete = null }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
@@ -152,7 +183,7 @@ private fun MonthGrid(
     val firstIndex = ((firstOfMonth.dayOfWeek.value + 6) % 7) // Lunes=0
     val daysInMonth = month.lengthOfMonth()
     val totalCells = firstIndex + daysInMonth
-    val rows = ceil(totalCells / 7.0).toInt()
+    val rows = kotlin.math.ceil(totalCells / 7.0).toInt()
 
     Column {
         var dayNum = 1
@@ -195,7 +226,6 @@ private fun DayCell(
     onClick: () -> Unit
 ) {
     val bg = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -235,14 +265,24 @@ private fun DayCell(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun AppointmentRow(ap: AppointmentUi) {
-    val statusKey = ap.appointment.status.lowercase() // status es String en tu entidad
+private fun AppointmentRow(
+    ap: AppointmentUi,
+    onSetStatus: (String) -> Unit,
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+    val statusKey = ap.appointment.status.lowercase()
     val statusColor = when (statusKey) {
         "pending", "scheduled" -> MaterialTheme.colorScheme.primary
-        "done"                 -> Color(0xFF2E7D32)
-        "canceled", "cancelled"-> Color(0xFFC62828)
-        "no_show", "ausente"   -> Color(0xFFC62828)
-        else                   -> MaterialTheme.colorScheme.secondary
+        "done" -> Color(0xFF2E7D32)
+        "canceled", "cancelled" -> Color(0xFFC62828)
+        "no_show", "ausente" -> Color(0xFFC62828)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+    var menuOpen by remember { mutableStateOf(false) }
+
+    val precio = remember(ap.servicePrice) {
+        NumberFormat.getCurrencyInstance(Locale("es", "AR")).format(ap.servicePrice)
     }
 
     Row(
@@ -264,21 +304,53 @@ private fun AppointmentRow(ap: AppointmentUi) {
                 fontWeight = FontWeight.Medium
             )
             Text(
-                Text(text = ap.serviceName ?: "(Servicio)"),
+                text = "${ap.serviceName} • $precio",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
         Text(
             text = when (statusKey) {
-                "pending", "scheduled" -> "Próximo"
-                "done"                 -> "Realizado"
-                "canceled", "cancelled"-> "Cancelado"
-                "no_show", "ausente"   -> "Ausente"
-                else                   -> ap.appointment.status
+                "pending", "scheduled" -> "Pendiente"
+                "done" -> "Realizado"
+                "canceled", "cancelled" -> "Cancelado"
+                "no_show", "ausente" -> "Ausente"
+                else -> ap.appointment.status
             },
             color = statusColor,
             style = MaterialTheme.typography.labelMedium
         )
+
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = null)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(text = { Text("Pendiente") }, onClick = { onSetStatus("pending"); menuOpen = false })
+                DropdownMenuItem(text = { Text("Realizado") }, onClick = { onSetStatus("done"); menuOpen = false })
+                DropdownMenuItem(text = { Text("Cancelado") }, onClick = { onSetStatus("canceled"); menuOpen = false })
+                Divider()
+                DropdownMenuItem(
+                    text = { Text("Recordatorio WhatsApp") },
+                    enabled = !ap.clientPhone.isNullOrBlank(),
+                    onClick = {
+                        val phone = ap.clientPhone!!.filter { it.isDigit() || it == '+' }
+                        val fecha = Instant.ofEpochMilli(ap.appointment.startAt).atZone(ZoneId.systemDefault())
+                        val dia = "%02d/%02d/%04d".format(fecha.dayOfMonth, fecha.monthValue, fecha.year)
+                        val hora = "%02d:%02d".format(fecha.hour, fecha.minute)
+                        val serv = ap.serviceName
+                        val msg = "Hola ${ap.clientName}, te recuerdo $serv el $dia a las $hora. Si necesitás cambiar el horario, avisame por acá 🙂"
+                        openWhatsApp(context, phone, msg)
+                        menuOpen = false
+                    }
+                )
+                Divider()
+                DropdownMenuItem(
+                    text = { Text("Eliminar") },
+                    onClick = { onDelete(); menuOpen = false }
+                )
+            }
+        }
     }
 }
 
@@ -289,24 +361,11 @@ private fun formatHour(startAtMillis: Long): String {
     return "%02d:%02d".format(t.hour, t.minute)
 }
 
-@Composable
-private fun LegendDot(color: Color) {
-    Box(
-        Modifier
-            .size(10.dp)
-            .clip(CircleShape)
-            .background(color)
-    )
+@Composable private fun LegendDot(color: Color) {
+    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
     Spacer(Modifier.width(6.dp))
 }
-
-@Composable
-private fun LegendSquare(color: Color) {
-    Box(
-        Modifier
-            .size(14.dp)
-            .clip(MaterialTheme.shapes.small)
-            .background(color)
-    )
+@Composable private fun LegendSquare(color: Color) {
+    Box(Modifier.size(14.dp).clip(MaterialTheme.shapes.small).background(color))
     Spacer(Modifier.width(6.dp))
 }

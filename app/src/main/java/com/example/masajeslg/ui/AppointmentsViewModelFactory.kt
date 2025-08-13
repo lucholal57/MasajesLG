@@ -15,6 +15,10 @@ class AppointmentsViewModelFactory(private val ctx: Context) : ViewModelProvider
             serviceDao = db.serviceDao(),
             clientDao = db.clientDao()
         )
-        return AppointmentsViewModel(repo, db) as T
+        return AppointmentsViewModel(
+            repo = repo,
+            db = db,
+            appContext = ctx.applicationContext  // <- NUEVO
+        ) as T
     }
 }

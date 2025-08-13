@@ -1,5 +1,7 @@
 package com.example.masajeslg.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNav() {
     val nav = rememberNavController()

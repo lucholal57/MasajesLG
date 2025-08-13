@@ -1,104 +1,109 @@
 package com.example.masajeslg
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
+import androidx.annotation.RequiresApi
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.ui.unit.dp
-import com.example.masajeslg.ui.ClientsScreen
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.TopAppBar
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.masajeslg.ui.AppNav
 import com.example.masajeslg.ui.AppointmentsScreen
+import com.example.masajeslg.ui.ClientsScreen
 import com.example.masajeslg.ui.ServicesScreen
 import com.example.masajeslg.ui.theme.MasajesLGTheme
 
 class MainActivity : ComponentActivity() {
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MasajesLGTheme {
-                AppNav()   // <- solo esto, SIN paréntesis extra
-            }
-        }
-    }
-}
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MasajesLGApp() {
-    val navController = rememberNavController()
-    MaterialTheme {
-        Scaffold(
-            topBar = {
-                val canNavigateBack = navController.previousBackStackEntry != null
-                TopAppBar(
-                    title = { Text("MasajesLG - Agenda") },
-                    navigationIcon = {
-                        if (canNavigateBack) {
-                            IconButton(onClick = { navController.navigateUp() }) {
-                                // usa el ícono auto‑espejado para RTL
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Volver"
-                                )
-                            }
-                        }
-                    }
+
+        // 🔔 Pedir permiso de notificaciones en Android 13+ (API 33)
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    1001
                 )
             }
-        ) { padding ->
-            Box(Modifier.padding(padding)) {
-                AppNavHost(navController)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val pm = androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
+            )
+            if (pm != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
+        }
+
+        setContent {
+            MasajesLGTheme {
+                AppNav() // tu navegación bottom
             }
         }
     }
 }
 
+// --- Si seguís usando estas previews/utilidades, dejalas como están ---
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun MasajesLGApp() {
+    val navController = rememberNavController()
+    MaterialTheme {
+        TopAppBar(
+            title = { Text("MasajesLG - Agenda") },
+            navigationIcon = {
+                val canBack = navController.previousBackStackEntry != null
+                if (canBack) {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"
+                        )
+                    }
+                }
+            }
+        )
+        AppNavHost(navController)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavHost(navController: NavHostController) {
     NavHost(navController, startDestination = "home") {
-        composable("home") { HomeScreen(
-            onGoClients = { navController.navigate("clients") },
-            onGoServices = { navController.navigate("services") },
-            onGoAgenda = { navController.navigate("agenda") }
-        ) }
+        composable("home") { /* ... tu HomeScreen si lo usás ... */ }
         composable("clients") { ClientsScreen() }
         composable("services") { ServicesScreen() }
         composable("agenda") { AppointmentsScreen() }
     }
 }
 
-@Composable
-fun HomeScreen(onGoClients: () -> Unit, onGoServices: () -> Unit, onGoAgenda: () -> Unit) {
-    Surface {
-        Column(Modifier.padding(16.dp)) {
-            Text("Hola, Luciano 👋 — Vamos a construir esto paso a paso.")
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = onGoClients) { Text("Ir a Clientes") }
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onGoServices) { Text("Ir a Servicios") }
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onGoAgenda) { Text("Ir a Agenda") }
-        }
-    }
-}
-
-@Preview
-@Composable
-private fun PreviewApp() {
-    MasajesLGApp()
-}
+@RequiresApi(Build.VERSION_CODES.O)
+@Preview @Composable
+private fun PreviewApp() { MasajesLGApp() }

@@ -77,12 +77,11 @@ fun AppointmentsScreen() {
             onDismiss = { showCreate = false },
             onSave = { clientId, serviceId, whenMillis, notes ->
                 vm.create(
-                    context = ctx,
                     clientId = clientId,
                     serviceId = serviceId,
                     startAt = whenMillis,
                     notes = notes,
-                    reminderMinutesBefore = 60
+                    reminderMinutesBefore = 30
                 )
                 showCreate = false
             }
@@ -95,13 +94,12 @@ fun AppointmentsScreen() {
             onDismiss = { editing = null },
             onSave = { clientId, serviceId, whenMillis, notes ->
                 vm.update(
-                    context = ctx,
                     id = row.appointment.id,
                     clientId = clientId,
                     serviceId = serviceId,
                     startAt = whenMillis,
                     notes = notes,
-                    reminderMinutesBefore = 60
+                    reminderMinutesBefore = 30
                 )
                 editing = null
             },

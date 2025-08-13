@@ -7,15 +7,16 @@ plugins {
 
 android {
     namespace = "com.example.masajeslg"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.masajeslg"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
         vectorDrawables { useSupportLibrary = true }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -26,19 +27,22 @@ android {
                 "proguard-rules.pro"
             )
         }
-        debug { isMinifyEnabled = false }
+        debug {
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 
     buildFeatures { compose = true }
 
     composeOptions {
-        // ✅ con Kotlin 2.0.x, usar 1.7.0
+        // Con Kotlin 2.0.x esta versión va bien; si usás Compose Compiler de plugin, podés omitirlo.
         kotlinCompilerExtensionVersion = "1.7.0"
     }
 
@@ -48,15 +52,21 @@ android {
 }
 
 dependencies {
+    // Desugaring para java.time en minSdk < 26
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
-    implementation(libs.androidx.foundation)
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
+
+    implementation(libs.androidx.foundation)
 
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.8.0")
 
@@ -75,10 +85,5 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.material:material-icons-extended")
-
-
-
-
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

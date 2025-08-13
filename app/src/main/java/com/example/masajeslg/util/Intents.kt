@@ -1,14 +1,14 @@
 package com.example.masajeslg.util
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import java.net.URLEncoder
 
-fun openWhatsApp(ctx: Context, phoneRaw: String, msg: String) {
+fun openWhatsApp(context: Context, phoneRaw: String, message: String) {
     val phone = phoneRaw.filter { it.isDigit() || it == '+' }
-    val url = "https://wa.me/$phone?text=${URLEncoder.encode(msg, Charsets.UTF_8.name())}"
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-    try { ctx.startActivity(intent) } catch (_: ActivityNotFoundException) { }
+    val encoded = URLEncoder.encode(message, "UTF-8")
+    val uri = Uri.parse("https://wa.me/$phone?text=$encoded")
+    val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
 }

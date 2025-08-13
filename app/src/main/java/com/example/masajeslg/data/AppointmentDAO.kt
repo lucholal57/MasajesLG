@@ -10,17 +10,19 @@ interface AppointmentDao {
 
     @Query(
         """
-SELECT COUNT(*) FROM appointments
-WHERE (:start < endAt) AND (:end > startAt)
-"""
+    SELECT COUNT(*) FROM appointments
+    WHERE (:start < endAt) AND (:end > startAt)
+      AND status != 'canceled'
+    """
     )
     suspend fun countOverlaps(start: Long, end: Long): Int
 
     @Query(
         """
-SELECT COUNT(*) FROM appointments
-WHERE id != :id AND (:start < endAt) AND (:end > startAt)
-"""
+    SELECT COUNT(*) FROM appointments
+    WHERE id != :id AND (:start < endAt) AND (:end > startAt)
+      AND status != 'canceled'
+    """
     )
     suspend fun countOverlapsExcluding(id: Long, start: Long, end: Long): Int
 
