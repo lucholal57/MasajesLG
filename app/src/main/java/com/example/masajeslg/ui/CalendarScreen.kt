@@ -2,12 +2,16 @@ package com.example.masajeslg.ui
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -16,9 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.masajeslg.data.AppointmentUi
 import com.example.masajeslg.util.openWhatsApp
@@ -50,8 +56,19 @@ fun CalendarScreen(
         dayCounts.associate { parseSqlDayToLocalDate(it.day) to it.count }
     }
 
-    // ⬇️ estado para confirmar borrado
+    // Confirmar borrado
     var toDelete by remember { mutableStateOf<AppointmentUi?>(null) }
+
+    // Mostrar/ocultar calendario
+    var showCalendar by remember { mutableStateOf(true) }
+
+    // Altura máxima del calendario (accesibilidad)
+    val fontScale = LocalConfiguration.current.fontScale
+    val maxCalendarHeight = when {
+        fontScale >= 1.6f -> 280.dp
+        fontScale >= 1.3f -> 300.dp
+        else -> 320.dp
+    }
 
     Scaffold(
         topBar = {
@@ -67,12 +84,19 @@ fun CalendarScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { viewModel.prevMonth() }) { Text("⟵") }
                         TextButton(onClick = { viewModel.nextMonth() }) { Text("⟶") }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = { showCalendar = !showCalendar }) {
+                            Text(if (showCalendar) "Ver turnos" else "Ver calendario")
+                        }
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick, containerColor = MaterialTheme.colorScheme.primary) {
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
                 Text("+", color = MaterialTheme.colorScheme.onPrimary)
             }
         }
@@ -83,56 +107,89 @@ fun CalendarScreen(
                 .fillMaxSize()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            // Encabezado días (L..D)
-            Row(Modifier.fillMaxWidth()) {
-                DayOfWeek.values().forEach { dow ->
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            // ===== CALENDARIO PLEGABLE =====
+            AnimatedVisibility(visible = showCalendar) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxCalendarHeight)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Encabezado días (L..D)
+                    Row(Modifier.fillMaxWidth()) {
+                        DayOfWeek.values().forEach { dow ->
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = dow.getDisplayName(TextStyle.SHORT, locale).uppercase(locale),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    // Grilla del mes
+                    MonthGrid(
+                        month = month,
+                        selected = selectedDate,
+                        counts = countsMap,
+                        onDayClick = { viewModel.selectDate(it) }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Leyenda
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        LegendDot(color = MaterialTheme.colorScheme.tertiary)
                         Text(
-                            text = dow.getDisplayName(TextStyle.SHORT, locale).uppercase(locale),
+                            " = turnos en el día",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        LegendSquare(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        Text(
+                            " = día seleccionado",
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
-
-            Spacer(Modifier.height(6.dp))
-
-            // Grilla del mes
-            MonthGrid(
-                month = month,
-                selected = selectedDate,
-                counts = countsMap,
-                onDayClick = { viewModel.selectDate(it) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Leyenda
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                LegendDot(color = MaterialTheme.colorScheme.tertiary)
-                Text(" = turnos en el día", style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.width(12.dp))
-                LegendSquare(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                Text(" = día seleccionado", style = MaterialTheme.typography.labelMedium)
-            }
+            // ===== FIN CALENDARIO =====
 
             Spacer(Modifier.height(10.dp))
             Divider()
 
-            // Lista de turnos del día seleccionado
             Text(
                 text = "Turnos del ${selectedDate.dayOfMonth}/${selectedDate.monthValue}/${selectedDate.year}",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
+                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis
             )
 
+            // Lista (ocupa el resto SIEMPRE)
+            val listState = rememberLazyListState()
             if (appointments.isEmpty()) {
-                Text("No hay turnos en esta fecha.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    Text("No hay turnos en esta fecha.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(items = appointments, key = { it.appointment.id }) { ap ->
@@ -141,7 +198,7 @@ fun CalendarScreen(
                             onSetStatus = { newStatus ->
                                 viewModel.setStatus(ap.appointment.id, newStatus)
                             },
-                            onDelete = { toDelete = ap } // ⬅️ abrir confirmación
+                            onDelete = { toDelete = ap }
                         )
                         Divider()
                     }
@@ -155,9 +212,7 @@ fun CalendarScreen(
         AlertDialog(
             onDismissRequest = { toDelete = null },
             title = { Text("Eliminar turno") },
-            text = {
-                Text("¿Eliminar el turno de ${row.clientName} a las ${formatHour(row.appointment.startAt)}?")
-            },
+            text = { Text("¿Eliminar el turno de ${row.clientName} a las ${formatHour(row.appointment.startAt)}?") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.delete(row.appointment.id)
@@ -183,7 +238,7 @@ private fun MonthGrid(
     val firstIndex = ((firstOfMonth.dayOfWeek.value + 6) % 7) // Lunes=0
     val daysInMonth = month.lengthOfMonth()
     val totalCells = firstIndex + daysInMonth
-    val rows = kotlin.math.ceil(totalCells / 7.0).toInt()
+    val rows = ceil(totalCells / 7.0).toInt()
 
     Column {
         var dayNum = 1
@@ -239,7 +294,8 @@ private fun DayCell(
             text = date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1, overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(4.dp))
         if (count > 0) {
@@ -254,7 +310,8 @@ private fun DayCell(
                     text = if (count > 9) "9+" else count.toString(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onTertiary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             }
         } else {
@@ -301,11 +358,13 @@ private fun AppointmentRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = "${formatHour(ap.appointment.startAt)} • ${ap.clientName}",
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "${ap.serviceName} • $precio",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -318,7 +377,8 @@ private fun AppointmentRow(
                 else -> ap.appointment.status
             },
             color = statusColor,
-            style = MaterialTheme.typography.labelMedium
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1, overflow = TextOverflow.Ellipsis
         )
 
         Box {
